@@ -1,33 +1,27 @@
 from datetime import datetime
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+import requests
+import json
+from kafka import KafkaProducer
 
-
-
-# we havre to write a Default args
-
-default_args={
+# Default args for the DAG
+default_args = {
     'owner': 'Atharv',
-    'start_date':(2024,10,10,12,0)
-
+    'start_date': datetime(2024, 10, 10, 12, 0)  # Corrected start_date to datetime
 }
 
-
+# Function to fetch user data from randomuser.me
 def get_data():
-    import requests
-
-    res=requests.get("https://randomuser.me/api/")
-
-    res= res.json()
-    res=res['results'][0]  # To get Only one user data
-    # print(res)
+    res = requests.get("https://randomuser.me/api/")
+    res = res.json()
+    res = res['results'][0]  # To get Only one user data
     return res
 
-
+# Function to format the data as required
 def format_data(res):
     data = {}
     location = res['location']
-    # data['id'] = uuid.uuid4()
     data['first_name'] = res['name']['first']
     data['last_name'] = res['name']['last']
     data['gender'] = res['gender']
@@ -40,37 +34,24 @@ def format_data(res):
     data['registered_date'] = res['registered']['date']
     data['phone'] = res['phone']
     data['picture'] = res['picture']['medium']
-
     return data
 
-
+# Function to stream data to Kafka
 def stream_data():
-    import json
-    from kafka import KafkaProducer
-    import time
+    res = get_data()
+    res = format_data(res)
+    producer = KafkaProducer(bootstrap_servers=['broker:29092'], max_block_ms=50000)
+    producer.send('users_created', json.dumps(res).encode('utf-8'))
 
-    res=get_data()
-    res=format_data(res)
-    # print(json.dumps(res,indent=3)) 
-
-    producer = KafkaProducer(bootstrap_servers=['localhost:9092'], max_block_ms=50000)
-
-
-    producer.send('users_created',json.dumps(res).encode('utf-8'))
-
-# with DAG( 'user_automattion',
-#          default_args=default_args,
-#          schedule_interval='@daily',
-#          catchup=False
-#          ) as dag:
+# DAG definition
+with DAG('user_automation',  # Corrected the typo in the DAG name
+         default_args=default_args,
+         schedule_interval='@daily',
+         catchup=False) as dag:
     
-#     streaming_task=Pythonoperator(
-#         task_id='streaming_task',
-#         python_callable=stream_data,
-#         dag=dag
-#     )
-
-
-stream_data()
-
-
+    # Task to stream data
+    streaming_task = PythonOperator(
+        task_id='streaming_task',
+        python_callable=stream_data,
+        dag=dag
+    )
