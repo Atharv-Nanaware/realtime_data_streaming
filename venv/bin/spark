@@ -1,0 +1,3 @@
+#!/Users/atharvnanaware/Desktop/RailTime_srtreaming/venv/bin/python
+from spark import spark_admin
+spark_admin.main()
