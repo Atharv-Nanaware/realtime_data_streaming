@@ -135,3 +135,5 @@ wrapt==1.17.0
 WTForms==3.2.1
 yarl==1.18.0
 zipp==3.21.0
+kafka-python==2.0.2 
+
